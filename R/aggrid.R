@@ -46,7 +46,8 @@ aggrid <- function(data,
                    server = FALSE,
                    width = NULL,
                    height = NULL,
-                   elementId = NULL) {
+                   elementId = NULL,
+                   pinnedColumns = NULL) {
   # --------------- para check
   if (is.matrix(data)) {
     data <- as.data.frame(data)
@@ -65,20 +66,20 @@ aggrid <- function(data,
   data$rowid <- seq_len(n_row)
 
   column_defs <- purrr::imap(data, function(x, i) {
-    filterParams <- list(maxNumConditions = 5)
-    if (is.factor(x) && isTRUE(server)) {
-      filterParams$values <- levels(x)
-    }
-    if (inherits(x, "Date")) {
-      filterParams$comparator <- date_comparator()
-    }
-    list(
-      field = i,
-      filter = to_aggrid_filter(class(x)),
-      filterParams = filterParams,
-      hide = i == "rowid",
-      suppressColumnsToolPanel = i == "rowid"
-    )
+      filterParams <- list(maxNumConditions = 5)
+      if (is.factor(x) && isTRUE(server)) {
+          filterParams$values <- levels(x)
+      }
+      if (inherits(x, "Date")) {
+          filterParams$comparator <- date_comparator()
+      }
+
+      # Check if the current column should be pinned
+      pinned = if (i %in% names(pinnedColumns)) pinnedColumns[[i]] else NULL
+      
+      list(field = i, filter = to_aggrid_filter(class(x)), 
+          filterParams = filterParams, hide = i == "rowid", 
+          suppressColumnsToolPanel = i == "rowid", pinned = pinned)
   })
 
   if (isTRUE(checkboxSelection)) {
@@ -150,6 +151,7 @@ aggrid <- function(data,
       defaultColDef = list(
         sortable = TRUE,
         resizable = TRUE,
+        editable = TRUE,
         # for side bar
         enableRowGroup = TRUE,
         enableValue = TRUE,
