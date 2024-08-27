@@ -73,28 +73,12 @@ aggrid <- function(data,
     if (inherits(x, "Date")) {
       filterParams$comparator <- date_comparator()
     }
-
-    # Check if the current column should be pinned
-    pinned = if (i %in% names(pinnedColumns)) pinnedColumns[[i]] else NULL
-    # Check if the current column should be hidden
-    hide = if(i %in% hiddenColumns) TRUE else FALSE
-    #TEST 
-    
-    # Retrieve any custom styles defined for the column
-    cellStyle = if (i %in% names(columnStyles)) columnStyles[[i]]$cellStyle else NULL
-    headerClass = if (i %in% names(columnStyles)) columnStyles[[i]]$headerClass else NULL
-    cellClass = if (i %in% names(columnStyles)) columnStyles[[i]]$cellClass else NULL
-    
     list(
-      field = i, 
-      filter = to_aggrid_filter(class(x)), 
-      filterParams = filterParams, 
-      hide = i %in% hiddenColumns || i == "rowid",  # Hide columns based on `hiddenColumns`
-      suppressColumnsToolPanel = i == "rowid", 
-      pinned = pinned,
-      cellStyle = cellStyle,
-      headerClass = headerClass,
-      cellClass = cellClass
+      field = i,
+      filter = to_aggrid_filter(class(x)),
+      filterParams = filterParams,
+      hide = i == "rowid",
+      suppressColumnsToolPanel = i == "rowid"
     )
   })
 
@@ -174,7 +158,7 @@ aggrid <- function(data,
       defaultColDef = list(
         sortable = TRUE,
         resizable = TRUE,
-        editable = TRUE,
+        # for side bar
         enableRowGroup = TRUE,
         enableValue = TRUE,
         enablePivot = TRUE
