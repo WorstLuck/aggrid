@@ -78,6 +78,7 @@ aggrid <- function(data,
     pinned = if (i %in% names(pinnedColumns)) pinnedColumns[[i]] else NULL
     # Check if the current column should be hidden
     hide = if(i %in% hiddenColumns) TRUE else FALSE
+    #TEST 
     
     # Retrieve any custom styles defined for the column
     cellStyle = if (i %in% names(columnStyles)) columnStyles[[i]]$cellStyle else NULL
