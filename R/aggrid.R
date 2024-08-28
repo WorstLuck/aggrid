@@ -46,24 +46,25 @@ aggrid <- function(data,
                    server = FALSE,
                    width = NULL,
                    height = NULL,
-                   elementId = NULL) {
-  # --------------- para check
+                   elementId = NULL,
+                   pinnedColumns = NULL,
+                   columnStyles = list(),
+                   groupedColumns = NULL,
+                   hiddenColumns = NULL) {  # New parameter for hidden columns
+  # --------------- parameter check
   if (is.matrix(data)) {
     data <- as.data.frame(data)
   }
   stopifnot(is.data.frame(data))
-  # data <- data.table::as.data.table(data)
   rowSelection <- match.arg(rowSelection)
   n_row <- nrow(data)
 
-  # need to make row id
-  # https://www.ag-grid.com/javascript-data-grid/server-side-model-configuration/#providing-row-ids
-  # Need to include row numbers in data to be able to return correctly when row is selected in shiny
   if ("rowid" %in% colnames(data)) {
     stop("Temporary column name cannot have `rowid`.")
   }
   data$rowid <- seq_len(n_row)
 
+  # Set up column definitions
   column_defs <- purrr::imap(data, function(x, i) {
     filterParams <- list(maxNumConditions = 5)
     if (is.factor(x) && isTRUE(server)) {
@@ -72,14 +73,40 @@ aggrid <- function(data,
     if (inherits(x, "Date")) {
       filterParams$comparator <- date_comparator()
     }
+
+    # Check if the current column should be pinned
+    pinned = if (i %in% names(pinnedColumns)) pinnedColumns[[i]] else NULL
+    # Check if the current column should be hidden
+    hide = if(i %in% hiddenColumns) TRUE else FALSE
+    
+    # Retrieve any custom styles defined for the column
+    cellStyle = if (i %in% names(columnStyles)) columnStyles[[i]]$cellStyle else NULL
+    headerClass = if (i %in% names(columnStyles)) columnStyles[[i]]$headerClass else NULL
+    cellClass = if (i %in% names(columnStyles)) columnStyles[[i]]$cellClass else NULL
+    
     list(
-      field = i,
-      filter = to_aggrid_filter(class(x)),
-      filterParams = filterParams,
-      hide = i == "rowid",
-      suppressColumnsToolPanel = i == "rowid"
+      field = i, 
+      filter = to_aggrid_filter(class(x)), 
+      filterParams = filterParams, 
+      hide = i %in% hiddenColumns || i == "rowid",  # Hide columns based on `hiddenColumns`
+      suppressColumnsToolPanel = i == "rowid", 
+      pinned = pinned,
+      cellStyle = cellStyle,
+      headerClass = headerClass,
+      cellClass = cellClass
     )
   })
+
+  # Handle column grouping
+  if (!is.null(groupedColumns)) {
+    for (group in groupedColumns) {
+      group_name <- group$groupName
+      group_children <- group$children
+      grouped_columns <- purrr::map(group_children, ~ column_defs[[.x]])
+      column_defs <- column_defs[!names(column_defs) %in% group_children]
+      column_defs <- c(list(list(headerName = group_name, children = grouped_columns, marryChildren = TRUE)), column_defs)
+    }
+  }
 
   if (isTRUE(checkboxSelection)) {
     column_defs[[1]] <- c(
@@ -95,7 +122,6 @@ aggrid <- function(data,
       cli::cli_abort("`rowSelection` is single but `selectedRows` length > 1.")
     }
     if (server && is.numeric(selectedRows)) {
-      # server  module use toggledNodes
       selectedRows = seq_len(n_row)[-selectedRows]
     }
     if (is.character(selectedRows) && selectedRows != "all") {
@@ -108,7 +134,6 @@ aggrid <- function(data,
   } else {
     NULL
   }
-
 
   statusBar <- list(
     statusPanels = list(
@@ -133,7 +158,6 @@ aggrid <- function(data,
     dataURL <- NULL
   }
 
-
   x <- list(
     gridOptions = list(
       columnDefs = column_defs,
@@ -143,19 +167,25 @@ aggrid <- function(data,
       rowMultiSelectWithClick = TRUE,
       pagination = pagination,
       domLayout = domLayout,
-      # It seems better to let users click ctrl and mouse?
       alwaysMultiSort = TRUE,
       statusBar = statusBar,
       paginationPageSize = paginationPageSize,
       defaultColDef = list(
         sortable = TRUE,
         resizable = TRUE,
-        # for side bar
+        editable = TRUE,
         enableRowGroup = TRUE,
         enableValue = TRUE,
         enablePivot = TRUE
       ),
-      suppressFieldDotNotation = TRUE
+      suppressFieldDotNotation = TRUE,
+      sideBar = TRUE,  # Add a sidebar to manage columns
+      onFirstDataRendered = JS("
+          function(params) {
+              var hiddenColumns = ", jsonlite::toJSON(hiddenColumns), ";
+              params.columnApi.setColumnsVisible(hiddenColumns, false);
+          }
+      ")
     ),
     theme = theme,
     data = data,
@@ -168,10 +198,8 @@ aggrid <- function(data,
   dot_list <- list(...)
   x$gridOptions <- c(x$gridOptions, dot_list)
 
-  # Refer to the aggrid tutorial, the data needs to be converted by row.
   attr(x, "TOJSON_ARGS") <- list(dataframe = "rows")
 
-  # create widget
   htmlwidgets::createWidget(
     name = "aggrid",
     x,
@@ -189,6 +217,9 @@ aggrid <- function(data,
     preRenderHook = preRender_aggrid
   )
 }
+
+
+
 
 # preRenderHook function
 # more please see <https://book.javascript-for-r.com/widgets-adv.html#>

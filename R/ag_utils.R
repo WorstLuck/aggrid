@@ -3,7 +3,6 @@
 #  This file is define aggrid utils function.
 #
 #------------------------------------------------------------------------------#
-
 #' Resize all column by container width
 #'
 #' Example from <https://www.ag-grid.com/javascript-data-grid/column-sizing/#resizing-example>
