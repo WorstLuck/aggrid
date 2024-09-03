@@ -52,6 +52,12 @@ aggrid <- function(data,
                    groupedColumns = NULL,
                    hiddenColumns = NULL) {  # New parameter for hidden columns
   # --------------- parameter check
+
+   # If elementId is NULL, generate a unique ID
+  if (is.null(elementId)) {
+    elementId <- htmlwidgets::createWidgetId()
+  }
+
   if (is.matrix(data)) {
     data <- as.data.frame(data)
   }
@@ -179,7 +185,20 @@ aggrid <- function(data,
         enablePivot = TRUE
       ),
       suppressFieldDotNotation = TRUE,
-      sideBar = TRUE,  # Add a sidebar to manage columns
+      sideBar = TRUE,
+  # Check this part for issues
+      onCellValueChanged = JS(
+        paste0("
+          function(event) {
+            Shiny.onInputChange('", elementId, "_cellEdit', {
+              rowIndex: event.rowIndex,
+              colId: event.colDef.field,
+              newValue: event.newValue,
+              oldValue: event.oldValue
+            });
+          }
+        ")
+      ),
       onFirstDataRendered = JS("
           function(params) {
               var hiddenColumns = ", jsonlite::toJSON(hiddenColumns), ";
